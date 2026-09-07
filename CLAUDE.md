@@ -59,10 +59,21 @@ the GitHub Actions workflow invokes.
       8000 TPM free limit paces ~13 calls); budget the Actions job well
       above that. `gpt-oss-120b` primary, `qwen/qwen3.8-27b` fallback.
       Writes `data/curated_digest.json`. See PLAN.md.
-- [ ] Component 3: Digest builder
-- [ ] Component 4: Mailer
-- [ ] GitHub Actions workflow + secrets wiring
-- [ ] First live run + sanity check on real inbox
+- [x] Component 3: Digest builder — `src/digest_builder.py`, pure inline-style
+      HTML templating from `data/curated_digest.json`, no external calls.
+- [x] Component 4: Mailer — `src/mailer.py`, Gmail SMTP + App Password via
+      smtplib, secrets from env. Verified with a real send.
+- [x] `run_weekly.py` runs all four end-to-end in ~6.8 min, real email
+      confirmed.
+- [x] GitHub Actions workflow + secrets wiring — `.github/workflows/
+      weekly_digest.yml`, cron `30 2 * * 1` (Mon 08:00 IST) +
+      `workflow_dispatch`. Four separate repo secrets. See PLAN.md.
+- [x] First live run + sanity check on real inbox — manual `workflow_dispatch`
+      run verified fully green (2026-09-07), digest delivered,
+      `seen_urls.json` auto-committed by the job.
+
+**Status: fully deployed.** Next real event is the first scheduled Monday
+run, which fires on its own. See "Operating this project" below.
 
 (Update this checklist as phases complete — this is the single source of
 truth for "where are we" across sessions.)
@@ -113,6 +124,54 @@ In production: GitHub Actions repo secrets, referenced in the workflow YAML.
   same discipline here even though this is a small side project: wrap each
   source fetch in try/except, timeout every network call, log what was
   skipped and why
+
+## Operating this project
+
+The bot runs itself — GitHub Actions cron `30 2 * * 1` (Mon 08:00 IST) invokes
+`python src/run_weekly.py`. Normally there is nothing to do. This section is
+for when you need to intervene.
+
+### Manually trigger a run
+GitHub repo → **Actions** tab → **Weekly digest** (left sidebar) → **Run
+workflow** button (top right) → keep branch `main` → **Run workflow**.
+Use this for an off-cycle digest or to re-test after a fix. The `concurrency`
+group means a manual run won't collide with the scheduled one.
+
+### Where to check logs
+- **Actions tab** → click the run → click the **`digest`** job → expand steps.
+- The **"Run weekly pipeline"** step has the full pipeline log (collector
+  per-source lines, curator progress, mailer message-id, final `run OK` /
+  `RUN FAILED` banner).
+- A green ✓ job + the digest email in the inbox = success. A red ✗ job = a
+  stage failed and **no email was sent**; `seen_urls.json` is left unchanged
+  so nothing is lost — fix the cause and re-run manually.
+- Exit 0 with `nothing new since last week — no digest sent` is a valid
+  no-op (only expected on a re-run inside the same week).
+
+### Secrets
+Four **separate** repo secrets (Settings → Secrets and variables → Actions):
+`GROQ_API_KEY`, `GMAIL_ADDRESS`, `GMAIL_APP_PASSWORD`, `DIGEST_RECIPIENT`.
+They are write-only once saved — to rotate, overwrite the value. A single
+bundled secret does **not** work; the workflow reads each by name.
+
+### If a run fails — triage by the `RUN FAILED:` line
+
+| Symptom in the log | Cause | Fix |
+|---|---|---|
+| `curation failed: ... rate limit` / `429` / Groq TPM errors | Groq free tier (8000 TPM) contended or daily cap hit | Just re-run later — usually transient. The curator already does model fallback + repair retries; a hard fail means Groq was unavailable for the whole run. If it recurs weekly, move the cron off a busy UTC slot. |
+| `curation failed: ... authentication` / `invalid api key` | `GROQ_API_KEY` wrong or revoked | Regenerate at console.groq.com, overwrite the repo secret, re-run. |
+| `collector returned 0 items from every source` | Network blip or many feeds down at once | Re-run. Single dead feeds are logged as `skipped` and don't fail the run — a total-zero means something broad. Check the per-source lines for a pattern. |
+| A source consistently `skipped` (esp. Reddit / Meta AI) | Expected — those are best-effort, keyless access is blocked | No action. See PLAN.md Component 1 for the OAuth upgrade path if coverage feels thin. |
+| `send failed:` / `mailer crashed:` / SMTP auth error | Gmail App Password expired/revoked, or 2FA change | Generate a new App Password (Google Account → Security → App passwords), overwrite `GMAIL_APP_PASSWORD`, re-run. |
+| `mailer config missing: X` | A secret is unset or misnamed | Re-add it with the exact name. |
+| Job hits `timeout-minutes: 20` | A stage hung (usually a network call with no response) | Re-run. If it repeats, check which stage the log stops at. |
+
+### Tuning knobs (see PLAN.md for detail)
+- HN score threshold: `HN_MIN_POINTS` in `src/collector.py`.
+- Keyword list: `KEYWORDS` in `src/collector.py` — add new model families as
+  they ship.
+- Curator category balance / Research floor: `_enforce_balance()` in
+  `src/curator.py`.
 
 ## Not in scope (unless explicitly asked)
 - Twitter/X monitoring (no free API)

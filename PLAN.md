@@ -127,9 +127,30 @@ Status: not started
 - [ ] Confirm SMTP send works to owner's own address before automating
 
 ## GitHub Actions
-Status: not started
+Status: DONE (2026-09-07) — workflow live, one manual `workflow_dispatch`
+run verified fully green with the digest email delivered and
+`data/seen_urls.json` auto-committed back by the job.
 
-- [ ] Private repo created
-- [ ] Secrets added: GROQ_API_KEY, GMAIL_ADDRESS, GMAIL_APP_PASSWORD, DIGEST_RECIPIENT
-- [ ] Weekly cron confirmed correct in IST (cron is UTC — convert carefully)
-- [ ] First scheduled run verified end-to-end
+- [x] Private repo created
+- [x] Secrets added as **four separate** repo secrets: GROQ_API_KEY,
+      GMAIL_ADDRESS, GMAIL_APP_PASSWORD, DIGEST_RECIPIENT.
+      (Gotcha hit once: a single bundled secret does not work — Actions
+      secrets are opaque single values, the workflow reads them by name.)
+- [x] Weekly cron confirmed correct in IST: Mon 08:00 IST == Mon 02:30 UTC
+      == `30 2 * * 1` (IST is UTC+5:30, cron fields are always UTC).
+- [x] First run verified end-to-end via manual dispatch (not yet a real
+      scheduled Monday fire — that happens on its own).
+
+Workflow design notes (`.github/workflows/weekly_digest.yml`):
+- `workflow_dispatch` for manual test runs from the Actions tab.
+- `timeout-minutes: 20` on the job (real runtime ~6.8 min).
+- `permissions: contents: write` — required for the auto-commit step to push.
+- `concurrency: group: weekly-digest` — a manual run can't overlap the cron
+  (would double-send + race the seen_urls.json push).
+- Commit-back via `stefanzweifel/git-auto-commit-action@v5` with
+  `file_pattern: data/seen_urls.json` — scoped to that one file, the
+  gitignored intermediates are never committed. Commit message carries
+  `[skip ci]`.
+- Job fails visibly (red X) on any non-zero exit from `run_weekly.py` — no
+  `continue-on-error`, no `|| true`. The commit step is skipped on failure,
+  so a broken run leaves seen_urls.json untouched.
