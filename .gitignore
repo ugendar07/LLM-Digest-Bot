@@ -1,0 +1,14 @@
+.env
+CLAUDE.local.md
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+data/raw_this_week.json
+data/curated_digest.json
+data/digest.html
+/.claude
+
+data/curator_debug_*.json
+preview.html
