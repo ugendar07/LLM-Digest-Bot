@@ -1,0 +1,59 @@
+name: Weekly digest
+
+on:
+  schedule:
+    # Monday 08:00 IST == Monday 02:30 UTC (IST is UTC+5:30).
+    # cron fields are always UTC on GitHub Actions.
+    - cron: "30 2 * * 1"
+  workflow_dispatch: {}   # lets you trigger a test run by hand from the Actions tab
+
+# Only one digest run at a time; a manual test run while the cron is mid-flight
+# would double-send and race the seen_urls.json commit.
+concurrency:
+  group: weekly-digest
+  cancel-in-progress: false
+
+# The auto-commit step needs to push data/seen_urls.json back to the repo.
+permissions:
+  contents: write
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20   # real runtime ~6.8 min; headroom without letting a hung job burn free minutes
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run weekly pipeline
+        # run_weekly.py exits non-zero on any stage failure; that fails this
+        # step, which fails the job (red X in the Actions tab). No
+        # continue-on-error, no `|| true` — a broken run must be visible.
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          DIGEST_RECIPIENT: ${{ secrets.DIGEST_RECIPIENT }}
+        run: python src/run_weekly.py
+
+      - name: Commit updated dedup state
+        # Only runs if the pipeline step succeeded (default step behaviour).
+        # file_pattern is scoped to seen_urls.json so the gitignored
+        # intermediates (raw_this_week.json, curated_digest.json, digest.html)
+        # are never committed even if .gitignore were to change.
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: update seen_urls.json [skip ci]"
+          file_pattern: data/seen_urls.json
+          commit_user_name: github-actions[bot]
+          commit_user_email: 41898282+github-actions[bot]@users.noreply.github.com
