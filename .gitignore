@@ -1,5 +1,7 @@
 .env
 .env.*
+CLAUDE.md
+PLAN.md
 CLAUDE.local.md
 __pycache__/
 *.pyc
