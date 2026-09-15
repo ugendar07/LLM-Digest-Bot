@@ -240,7 +240,7 @@ def build_html(data: dict) -> str:
     header = (
         f'<div style="border-bottom:2px solid {INK};padding-bottom:12px;">'
         f'<h1 style="margin:0;font-size:22px;font-weight:800;color:{INK};">'
-        f'AI Industry Token Bites</h1>'
+        f'This Week at AI/ML</h1>'
         f'<div style="margin-top:4px;font-size:14px;color:{MUTED};">'
         f'Week of {_esc(date_range)}</div>'
         f'</div>'
@@ -251,7 +251,7 @@ def build_html(data: dict) -> str:
         '<html lang="en">\n<head>\n'
         '<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
-        f'<title>AI Industry Token Bites — Week of {_esc(date_range)}</title>\n'
+        f'<title>This Week at AI/ML — Week of {_esc(date_range)}</title>\n'
         '</head>\n'
         f'<body style="margin:0;padding:0;background-color:{PAGE_BG};">\n'
         f'<div style="max-width:640px;margin:0 auto;padding:24px 16px;">\n'

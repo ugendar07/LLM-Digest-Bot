@@ -53,8 +53,8 @@ SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 587
 SMTP_TIMEOUT = 30  # seconds — every network call is bounded
 
-SENDER_NAME = "AI Industry Token Bites"
-SUBJECT_PREFIX = "AI Industry Token Bites — Week of "
+SENDER_NAME = "This Week at AI/ML"
+SUBJECT_PREFIX = "This Week at AI/ML — Week of "
 LOOKBACK_DAYS = 7  # only used for the subject-line fallback date range
 
 
@@ -66,7 +66,7 @@ class MailerError(RuntimeError):
 # subject / date
 # --------------------------------------------------------------------------- #
 
-# digest_builder writes  <title>AI Industry Token Bites — Week of {range}</title>
+# digest_builder writes  <title>This Week at AI/ML — Week of {range}</title>
 # and a  "Week of {range}"  line in the header. Pull the range straight back
 # out of the rendered HTML so the subject matches the body exactly.
 _WEEK_OF_RE = re.compile(r"Week of\s+([^<\n]+?)\s*(?:<|\n|$)")
